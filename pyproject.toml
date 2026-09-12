@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mini-gpt-researcher"
+version = "0.1.0"
+description = "A learning-focused reimplementation of the core GPT Researcher workflow"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.13,<3",
+    "pydantic-settings>=2.15,<3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.1,<10"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-p no:cacheprovider"
+pythonpath = ["src"]
+testpaths = ["tests"]

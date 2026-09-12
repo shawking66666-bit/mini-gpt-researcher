@@ -1,1 +1,9 @@
 .worktrees/
+.env
+.venv/
+__pycache__/
+*.py[cod]
+*.db
+.pytest_cache/
+reports/
+data/

@@ -61,7 +61,7 @@
 - Produces: `Settings`, `TaskStatus`, `ResearchQuestion`, `ResearchPlan`, `SearchResult`, `Evidence`, `Usage`, `ResearchState`, `ResearchReport`.
 - Consumes: none.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 def test_fixed_limits():
@@ -78,13 +78,13 @@ def test_plan_rejects_five_questions():
         ResearchPlan(topic="topic", questions=questions)
 ```
 
-- [ ] **Step 2: Verify failure**
+- [x] **Step 2: Verify failure**
 
 Run: `python -m pytest tests/test_config.py tests/test_models.py -v`
 
 Expected: FAIL with missing `mini_researcher` package.
 
-- [ ] **Step 3: Implement package, settings, and models**
+- [x] **Step 3: Implement package, settings, and models**
 
 ```python
 class ResearchQuestion(BaseModel):
@@ -99,13 +99,13 @@ class ResearchPlan(BaseModel):
 
 Use environment aliases `DEEPSEEK_API_KEY`, `TAVILY_API_KEY`. `.env.example` contains blank values only. Ignore `.env`, `.venv/`, `*.db`, `reports/`, caches and secrets.
 
-- [ ] **Step 4: Verify pass**
+- [x] **Step 4: Verify pass**
 
 Run: `python -m pytest tests/test_config.py tests/test_models.py -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add pyproject.toml .gitignore .env.example src tests/test_config.py tests/test_models.py
