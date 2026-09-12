@@ -387,7 +387,7 @@ UI/API 返回最终结果
 
 以下决策已于 2026-09-12 确认：
 
-- LLM：DeepSeek API，第一版统一使用成本较低、支持结构化输出的模型，不做多模型路由。
+- LLM：DeepSeek API，第一版统一使用 `deepseek-v4-flash` 非思考模式，不做多模型路由。
 - 搜索：Tavily API；自动化测试使用 `FakeSearch`。
 - 首轮研究问题：4个。
 - 反思阶段补充问题：最多2个。
