@@ -124,7 +124,7 @@ git commit -m "feat: define research domain models"
 - Produces: `SearchProvider.search(query, max_results) -> list[SearchResult]`.
 - Implementations: `DeepSeekLLM`, `FakeLLM`, `TavilySearch`, `FakeSearch`.
 
-- [ ] **Step 1: Write failing fake tests**
+- [x] **Step 1: Write failing fake tests**
 
 ```python
 def test_fake_llm_returns_typed_response():
@@ -138,13 +138,13 @@ def test_fake_search_respects_limit():
     assert search.search("agent", max_results=1) == [result_a]
 ```
 
-- [ ] **Step 2: Verify failure**
+- [x] **Step 2: Verify failure**
 
 Run: `python -m pytest tests/test_llm.py tests/test_search.py -v`
 
 Expected: FAIL with missing clients.
 
-- [ ] **Step 3: Implement adapters**
+- [x] **Step 3: Implement adapters**
 
 Use `OpenAI(api_key=key, base_url="https://api.deepseek.com")`, model `deepseek-v4-flash`, non-thinking mode, JSON output, Pydantic validation, usage capture, and one validation retry. Map Tavily data only inside `TavilySearch`:
 
@@ -159,13 +159,13 @@ SearchResult(
 
 Reject blank queries. Convert provider failures to `LLMError`/`SearchError` without secret values.
 
-- [ ] **Step 4: Verify offline pass**
+- [x] **Step 4: Verify offline pass**
 
 Run: `python -m pytest tests/test_llm.py tests/test_search.py -v`
 
 Expected: PASS without network.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/mini_researcher/llm.py src/mini_researcher/search.py tests
@@ -182,7 +182,7 @@ git commit -m "feat: add testable AI service boundaries"
 - Produces: `Planner.create_plan(topic: str) -> ResearchPlan` with exactly four unique questions.
 - Produces: `EvidenceManager.add(question, results) -> list[Evidence]` and `.all()`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 def test_planner_returns_four_unique_questions():
@@ -201,23 +201,23 @@ def test_evidence_deduplicates_tracking_urls():
     assert added[0].url == "https://e.test/a"
 ```
 
-- [ ] **Step 2: Verify failure**
+- [x] **Step 2: Verify failure**
 
 Run: `python -m pytest tests/test_planner.py tests/test_evidence.py -v`
 
 Expected: FAIL with undefined planner/evidence manager.
 
-- [ ] **Step 3: Implement planning and deterministic evidence rules**
+- [x] **Step 3: Implement planning and deterministic evidence rules**
 
 Planning prompt requests four non-overlapping dimensions: context, alternatives/evidence, constraints/risks, evaluation/outcomes. Normalize whitespace and reject duplicate text. Evidence normalization removes fragments and `utm_*`, `fbclid`, `gclid`, accepts only HTTP(S), and assigns `S1..S12` in insertion order.
 
-- [ ] **Step 4: Verify pass**
+- [x] **Step 4: Verify pass**
 
 Run: `python -m pytest tests/test_planner.py tests/test_evidence.py -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/mini_researcher/planner.py src/mini_researcher/evidence.py tests
