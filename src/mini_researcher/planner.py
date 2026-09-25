@@ -1,11 +1,12 @@
 from mini_researcher.llm import LLMClient
-from mini_researcher.models import ResearchPlan
+from mini_researcher.models import ResearchPlan, Usage
 
 
 class Planner:
     def __init__(self, llm: LLMClient) -> None:
         # Planner 只依赖统一接口，测试和真实运行可以分别注入 FakeLLM 与 DeepSeekLLM。
         self.llm = llm
+        self.last_usage = Usage()
 
     def create_plan(self, topic: str) -> ResearchPlan:
         result = self.llm.generate_structured(
@@ -17,6 +18,7 @@ class Planner:
             user_prompt=f"Research topic: {topic}",
             output_type=ResearchPlan,
         )
+        self.last_usage = result.usage
         plan = result.value
         # ResearchPlan 允许 1～4 个问题；初始规划的业务规则要求必须恰好为 4 个。
         if len(plan.questions) != 4:

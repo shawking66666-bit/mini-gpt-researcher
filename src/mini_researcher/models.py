@@ -26,6 +26,11 @@ class ResearchPlan(BaseModel):
     questions: list[ResearchQuestion] = Field(min_length=1, max_length=4)
 
 
+class ReflectionResult(BaseModel):
+    # 空列表表示现有证据已经足够，不需要启动第二轮搜索。
+    questions: list[ResearchQuestion] = Field(default_factory=list, max_length=2)
+
+
 def _validate_http_url(value: str) -> str:
     parsed = urlparse(value)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
