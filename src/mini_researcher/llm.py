@@ -24,6 +24,7 @@ class LLMClient(Protocol):
         self,
         system_prompt: str,
         user_prompt: str,
+        # 这里不仅是类型提示：调用时会传入 ResearchPlan、ReflectionResult 等真实类对象。
         output_type: type[ModelT],
     ) -> LLMResult[ModelT]: ...
 
@@ -73,11 +74,15 @@ class DeepSeekLLM:
                 if not content:
                     raise ValueError("LLM returned empty content")
                 try:
+                    # 用调用方传入的 Pydantic 类解析 JSON。
+                    # 例如 output_type 是 ReportDraft 时，这行等价于
+                    # ReportDraft.model_validate_json(content)，value 因而是 ReportDraft 实例。
                     value = output_type.model_validate_json(content)
                 except ValidationError:
                     if attempt == 0:
                         continue
                     raise
+                # LLMResult 是统一外壳：result.value 是解析后的业务实例，result.usage 是本次用量。
                 return LLMResult(
                     value=value,
                     usage=Usage(
