@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Any
 
 from mini_researcher.llm import LLMResult
@@ -5,6 +6,7 @@ from mini_researcher.models import (
     ReflectionResult,
     ResearchPlan,
     ResearchQuestion,
+    ResearchState,
     SearchResult,
     TaskStatus,
     Usage,
@@ -240,3 +242,35 @@ def test_orchestrator_accumulates_usage_from_planner_and_reflector() -> None:
     assert state.usage.search_requests == 4
     assert state.usage.input_tokens == 180
     assert state.usage.output_tokens == 50
+
+
+def test_orchestrator_uses_service_created_state() -> None:
+    """Service 先保存的任务 ID 应在研究过程和最终结果中保持一致。"""
+
+    topic = "AI agents"
+    plan = ResearchPlan(
+        topic=topic,
+        questions=[
+            ResearchQuestion(id=f"q{number}", text=f"question {number}")
+            for number in range(1, 5)
+        ],
+    )
+    initial_state = ResearchState(
+        task_id="service-task-1",
+        topic=topic,
+        status=TaskStatus.PENDING,
+        created_at=datetime(2026, 10, 2, tzinfo=UTC),
+    )
+    orchestrator = ResearchOrchestrator(
+        planner=Planner(FakeLLM([plan])),
+        search=FakeSearch({}),
+        reflector=Reflector(FakeLLM([ReflectionResult()])),
+        max_results_per_question=5,
+        max_sources=12,
+    )
+
+    result = orchestrator.run(topic, state=initial_state)
+
+    assert result is initial_state
+    assert result.task_id == "service-task-1"
+    assert result.status == TaskStatus.REPORTING

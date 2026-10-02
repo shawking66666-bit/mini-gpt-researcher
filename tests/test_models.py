@@ -10,6 +10,7 @@ from mini_researcher.models import (
     ResearchState,
     SearchResult,
     TaskStatus,
+    Usage,
 )
 
 
@@ -71,3 +72,28 @@ def test_evidence_keeps_question_and_source_identity() -> None:
 
     assert evidence.source_id == "S1"
     assert evidence.question_id == "q1"
+
+
+def test_usage_accumulates_each_counter() -> None:
+    """多个模块的请求、Token 与费用应进入同一任务总用量。"""
+
+    total = Usage(llm_requests=2, search_requests=4, input_tokens=100)
+    addition = Usage(
+        llm_requests=1,
+        search_requests=2,
+        input_tokens=30,
+        output_tokens=12,
+        tavily_credits=3,
+        estimated_cost_usd=0.02,
+    )
+
+    total.accumulate(addition)
+
+    assert total == Usage(
+        llm_requests=3,
+        search_requests=6,
+        input_tokens=130,
+        output_tokens=12,
+        tavily_credits=3,
+        estimated_cost_usd=0.02,
+    )

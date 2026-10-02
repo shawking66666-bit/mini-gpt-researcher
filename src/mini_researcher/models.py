@@ -65,6 +65,16 @@ class Usage(BaseModel):
     tavily_credits: int = Field(default=0, ge=0)
     estimated_cost_usd: float = Field(default=0.0, ge=0)
 
+    def accumulate(self, addition: "Usage") -> None:
+        """将一次模块调用的请求数、Token和费用加到任务总用量中。"""
+
+        self.llm_requests += addition.llm_requests
+        self.search_requests += addition.search_requests
+        self.input_tokens += addition.input_tokens
+        self.output_tokens += addition.output_tokens
+        self.tavily_credits += addition.tavily_credits
+        self.estimated_cost_usd += addition.estimated_cost_usd
+
 
 class ResearchReport(BaseModel):
     title: str = Field(min_length=1)

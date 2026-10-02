@@ -40,6 +40,8 @@ class ReportWriter:
         plan: ResearchPlan,
         evidence: list[Evidence],
     ) -> ResearchReport:
+        # ReportWriter 可被多个任务复用；每次调用先清空上次的用量。
+        self.last_usage = Usage()
         # 把 Evidence 实例列表整理成一个字符串目录，作为 user_prompt 的一部分交给 LLM。
         evidence_catalog = "\n".join(
             (

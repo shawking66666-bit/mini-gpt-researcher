@@ -1,6 +1,6 @@
 import pytest
 
-from mini_researcher.models import Evidence, ResearchPlan, ResearchQuestion
+from mini_researcher.models import Evidence, ResearchPlan, ResearchQuestion, Usage
 from mini_researcher.report import (
     InvalidCitationError,
     ReportDraft,
@@ -103,3 +103,18 @@ def test_render_html_has_clickable_link_and_escapes_raw_html() -> None:
     assert '<a href="https://e.test">E</a>' in html
     assert "<script>" not in html
     assert "&lt;script&gt;" in html
+
+
+def test_report_writer_clears_usage_before_a_new_request() -> None:
+    """新请求在LLM返回前失败时，不应沿用上次请求的用量。"""
+
+    writer = ReportWriter(
+        FakeLLM([ReportDraft(title="First", markdown="Claim [S1]")])
+    )
+    writer.write("AI agents", _plan(), [_evidence_s1()])
+    assert writer.last_usage.llm_requests == 1
+
+    with pytest.raises(RuntimeError, match="No fake response"):
+        writer.write("AI agents", _plan(), [_evidence_s1()])
+
+    assert writer.last_usage == Usage()
