@@ -51,7 +51,7 @@
 - `.venv\Scripts\python.exe -m pip install -e ".[dev]"`：成功。
 - `.venv\Scripts\python.exe -m pytest -q`：`62 passed in 14.25s`。
 - `tests/test_evaluation_fixtures.py`：`3 passed in 0.07s`。
-- Docker：当前机器找不到 `docker` 命令，Dockerfile 尚未完成镜像构建验证。
+- Docker：Docker Desktop 4.84.0 / Engine 29.6.2 构建 `mini-gpt-researcher:local` 成功；容器以 UID 10001 运行，`/openapi.json` 和 `/research` 均返回 HTTP 200。未向容器传入密钥，真实研究调用仍未验证。
 - 真实DeepSeek/Tavily固定案例：尚未运行，不得声称真实研究质量或成本已经验证。
 
 ## Git 与发布边界

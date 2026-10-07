@@ -95,7 +95,7 @@ docker build -t mini-gpt-researcher:local .
 docker run --rm -p 8000:8000 --env-file .env mini-gpt-researcher:local
 ```
 
-容器默认运行 FastAPI 的 `8000` 端口，并以非 root 用户运行。当前开发机器没有可用的 Docker 命令，因此仓库中的 Dockerfile 尚未在本机完成镜像构建验证。
+容器默认运行 FastAPI 的 `8000` 端口，并以非 root 用户运行。2026-10-07 已在 Docker Desktop 4.84.0 / Engine 29.6.2 上完成本地验证：镜像构建成功，容器内用户为 `researcher`（UID 10001），`/openapi.json` 与 `/research` 均返回 HTTP 200。真实研究仍需通过 `.env` 单独提供 DeepSeek 与 Tavily 密钥。
 
 ## 测试与评估
 
@@ -117,7 +117,7 @@ docker run --rm -p 8000:8000 --env-file .env mini-gpt-researcher:local
 - 引用校验能阻止未知编号，但不能自动证明引用内容支持对应结论。
 - SQLite 只保存任务最新快照，不保存完整状态变化历史。
 - 当前没有 RAG 私有知识库、浏览器自动化或多 Agent 协作。
-- Docker 镜像构建和真实 API 固定案例评测仍待验证。
+- 真实 API 固定案例评测仍待验证；Docker 只完成无密钥的启动与查询接口验证。
 
 ## 作品集表述边界
 
