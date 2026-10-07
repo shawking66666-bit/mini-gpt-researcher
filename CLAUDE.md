@@ -46,6 +46,14 @@
 - 完成一个阶段后记录实际命令、结果和仍未验证的部分。
 - 未运行验证时，不得声称功能完成或可用。
 
+## 当前交付验证（2026-10-07）
+
+- `.venv\Scripts\python.exe -m pip install -e ".[dev]"`：成功。
+- `.venv\Scripts\python.exe -m pytest -q`：`62 passed in 14.25s`。
+- `tests/test_evaluation_fixtures.py`：`3 passed in 0.07s`。
+- Docker：当前机器找不到 `docker` 命令，Dockerfile 尚未完成镜像构建验证。
+- 真实DeepSeek/Tavily固定案例：尚未运行，不得声称真实研究质量或成本已经验证。
+
 ## Git 与发布边界
 
 - 不执行 `git push`、`git rebase`、`git reset --hard` 或公开发布，除非用户明确授权。
