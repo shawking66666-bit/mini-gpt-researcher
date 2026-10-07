@@ -109,7 +109,7 @@ docker run --rm -p 8000:8000 --env-file .env mini-gpt-researcher:local
 
 同日完成一次受控的真实DeepSeek + Tavily端到端冒烟测试：任务进入 `completed`，执行2轮、3次LLM请求和6次基础搜索，保存12条Evidence并生成报告；从SQLite重新读取后状态、报告和引用编号均有效。该单次成功只证明外部链路可用，不证明所有主题的研究质量。
 
-固定评估案例位于 `tests/fixtures/research_cases/`，评分规则见 `docs/evaluation-rubric.md`，当前真实结果见 `docs/evaluation-results-v1.md`。真实 DeepSeek/Tavily 评测尚未运行，因此没有填写虚构分数。
+固定评估案例位于 `tests/fixtures/research_cases/`，评分规则见 `docs/evaluation-rubric.md`，真实结果见 `docs/evaluation-results-v1.md`。2026-10-07 三个案例均完成真实DeepSeek/Tavily运行，得分为32/40、33/40和33/40；结果同时保留单次运行、来源权威性和引用语义尚未充分验证的限制。
 
 ## 已知限制
 
@@ -119,7 +119,7 @@ docker run --rm -p 8000:8000 --env-file .env mini-gpt-researcher:local
 - 引用校验能阻止未知编号，但不能自动证明引用内容支持对应结论。
 - SQLite 只保存任务最新快照，不保存完整状态变化历史。
 - 当前没有 RAG 私有知识库、浏览器自动化或多 Agent 协作。
-- 真实 API 固定案例评测仍待验证；Docker 只完成无密钥的启动与查询接口验证。
+- Docker只完成无密钥的启动与查询接口验证；固定案例各只运行一次，不能证明生产稳定性。
 
 ## 作品集表述边界
 
