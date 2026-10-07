@@ -24,6 +24,8 @@ class FakeLLM:
 
 
 class FakeSearch:
+    credits_per_request = 0
+
     def __init__(self, responses: dict[str, Any]) -> None:
         self.responses = responses
 

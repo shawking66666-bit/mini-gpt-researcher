@@ -62,17 +62,36 @@ def test_deepseek_llm_requests_json_and_validates_response() -> None:
     assert result.value == _plan()
     assert result.usage.input_tokens == 120
     assert result.usage.output_tokens == 80
-    assert completions.calls == [
-        {
-            "model": "deepseek-v4-flash",
-            "messages": [
-                {"role": "system", "content": "Return a JSON research plan."},
-                {"role": "user", "content": "Research AI agents."},
-            ],
-            "response_format": {"type": "json_object"},
-            "extra_body": {"thinking": {"type": "disabled"}},
-        }
-    ]
+    assert len(completions.calls) == 1
+    assert completions.calls[0]["model"] == "deepseek-v4-flash"
+    assert completions.calls[0]["messages"][1] == {
+        "role": "user",
+        "content": "Research AI agents.",
+    }
+    assert completions.calls[0]["response_format"] == {"type": "json_object"}
+    assert completions.calls[0]["extra_body"] == {"thinking": {"type": "disabled"}}
+
+
+def test_deepseek_llm_tells_provider_the_exact_top_level_schema() -> None:
+    """真实模型不能自行增加research_plan等顶层包装字段。"""
+
+    response = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=_plan().model_dump_json()))],
+        usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5),
+    )
+    completions = _FakeCompletions(response)
+    client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
+
+    DeepSeekLLM(client=client).generate_structured(
+        "Return JSON.",
+        "Research AI agents.",
+        ResearchPlan,
+    )
+
+    system_message = completions.calls[0]["messages"][0]["content"]
+    assert '"topic"' in system_message
+    assert '"questions"' in system_message
+    assert "Do not wrap the object" in system_message
 
 
 def test_deepseek_llm_rejects_empty_content() -> None:

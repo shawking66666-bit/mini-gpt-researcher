@@ -8,10 +8,15 @@ class SearchError(RuntimeError):
 
 
 class SearchProvider(Protocol):
+    credits_per_request: int
+
     def search(self, query: str, max_results: int) -> list[SearchResult]: ...
 
 
 class TavilySearch:
+    # Tavily basic search currently consumes one API credit after a successful request。
+    credits_per_request = 1
+
     def __init__(
         self,
         client: Any | None = None,

@@ -81,4 +81,5 @@ class ResearchOrchestrator:
                 state.errors.append(f"{question.id}: {error}")
                 continue
 
+            state.usage.tavily_credits += self.search.credits_per_request
             evidence_manager.add(question, results)

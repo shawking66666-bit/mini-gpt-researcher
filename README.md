@@ -105,7 +105,9 @@ docker run --rm -p 8000:8000 --env-file .env mini-gpt-researcher:local
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-2026-10-07 的本地结果为 `62 passed`。这些测试证明确定性流程、数据模型、错误路径、持久化、API 和 UI 冒烟行为可重复，不证明真实搜索质量或模型回答正确。
+2026-10-07 的本地结果为 `64 passed`。这些测试证明确定性流程、数据模型、错误路径、持久化、API 和 UI 冒烟行为可重复。
+
+同日完成一次受控的真实DeepSeek + Tavily端到端冒烟测试：任务进入 `completed`，执行2轮、3次LLM请求和6次基础搜索，保存12条Evidence并生成报告；从SQLite重新读取后状态、报告和引用编号均有效。该单次成功只证明外部链路可用，不证明所有主题的研究质量。
 
 固定评估案例位于 `tests/fixtures/research_cases/`，评分规则见 `docs/evaluation-rubric.md`，当前真实结果见 `docs/evaluation-results-v1.md`。真实 DeepSeek/Tavily 评测尚未运行，因此没有填写虚构分数。
 

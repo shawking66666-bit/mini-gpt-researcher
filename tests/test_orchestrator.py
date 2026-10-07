@@ -244,6 +244,30 @@ def test_orchestrator_accumulates_usage_from_planner_and_reflector() -> None:
     assert state.usage.output_tokens == 50
 
 
+def test_orchestrator_accumulates_provider_credits_after_successful_searches() -> None:
+    plan = ResearchPlan(
+        topic="AI agents",
+        questions=[
+            ResearchQuestion(id=f"q{number}", text=f"question {number}")
+            for number in range(1, 5)
+        ],
+    )
+    search = FakeSearch({})
+    search.credits_per_request = 1
+    orchestrator = ResearchOrchestrator(
+        planner=Planner(FakeLLM([plan])),
+        search=search,
+        reflector=Reflector(FakeLLM([ReflectionResult()])),
+        max_results_per_question=5,
+        max_sources=12,
+    )
+
+    state = orchestrator.run("AI agents")
+
+    assert state.usage.search_requests == 4
+    assert state.usage.tavily_credits == 4
+
+
 def test_orchestrator_uses_service_created_state() -> None:
     """Service 先保存的任务 ID 应在研究过程和最终结果中保持一致。"""
 

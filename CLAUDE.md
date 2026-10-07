@@ -49,10 +49,11 @@
 ## 当前交付验证（2026-10-07）
 
 - `.venv\Scripts\python.exe -m pip install -e ".[dev]"`：成功。
-- `.venv\Scripts\python.exe -m pytest -q`：`62 passed in 14.25s`。
+- `.venv\Scripts\python.exe -m pytest -q`：`64 passed in 11.17s`。
 - `tests/test_evaluation_fixtures.py`：`3 passed in 0.07s`。
 - Docker：Docker Desktop 4.84.0 / Engine 29.6.2 构建 `mini-gpt-researcher:local` 成功；容器以 UID 10001 运行，`/openapi.json` 和 `/research` 均返回 HTTP 200。未向容器传入密钥，真实研究调用仍未验证。
-- 真实DeepSeek/Tavily固定案例：尚未运行，不得声称真实研究质量或成本已经验证。
+- 真实DeepSeek/Tavily冒烟测试：1个受控主题完成2轮研究，3次LLM请求、6次基础搜索、12条Evidence、0个运行错误；报告写入SQLite并重新读取成功，引用编号全部有效。
+- 三个固定案例：尚未运行，不得把单次冒烟成功描述为真实研究质量或成本已经完整验证。
 
 ## Git 与发布边界
 

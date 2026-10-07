@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import json
 from typing import Any, Generic, Protocol, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -53,8 +54,14 @@ class DeepSeekLLM:
         user_prompt: str,
         output_type: type[ModelT],
     ) -> LLMResult[ModelT]:
+        schema = json.dumps(output_type.model_json_schema(), ensure_ascii=False)
+        structured_system_prompt = (
+            f"{system_prompt}\n\n"
+            f"Return exactly one JSON object matching this schema: {schema}\n"
+            "Do not wrap the object in another property such as result, data, or the model name."
+        )
         messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": structured_system_prompt},
             {"role": "user", "content": user_prompt},
         ]
         input_tokens = 0
