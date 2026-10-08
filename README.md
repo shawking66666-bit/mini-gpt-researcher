@@ -95,7 +95,7 @@ docker build -t mini-gpt-researcher:local .
 docker run --rm -p 8000:8000 --env-file .env mini-gpt-researcher:local
 ```
 
-容器默认运行 FastAPI 的 `8000` 端口，并以非 root 用户运行。2026-10-07 已在 Docker Desktop 4.84.0 / Engine 29.6.2 上完成本地验证：镜像构建成功，容器内用户为 `researcher`（UID 10001），`/openapi.json` 与 `/research` 均返回 HTTP 200。真实研究仍需通过 `.env` 单独提供 DeepSeek 与 Tavily 密钥。
+容器默认运行 FastAPI 的 `8000` 端口，并以非 root 用户运行。Docker 镜像已经完成本地构建与运行验证：容器内用户为 `researcher`（UID 10001），`/openapi.json` 与 `/research` 均返回 HTTP 200。真实研究需通过 `.env` 单独提供 DeepSeek 与 Tavily 密钥。
 
 ## 测试与评估
 
@@ -105,24 +105,14 @@ docker run --rm -p 8000:8000 --env-file .env mini-gpt-researcher:local
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-2026-10-07 的本地结果为 `64 passed`。这些测试证明确定性流程、数据模型、错误路径、持久化、API 和 UI 冒烟行为可重复。
+自动化测试覆盖数据模型、Agent 流程、错误路径、持久化、API 和 UI，目前共 `64` 项测试通过。
 
-同日完成一次受控的真实DeepSeek + Tavily端到端冒烟测试：任务进入 `completed`，执行2轮、3次LLM请求和6次基础搜索，保存12条Evidence并生成报告；从SQLite重新读取后状态、报告和引用编号均有效。该单次成功只证明外部链路可用，不证明所有主题的研究质量。
+真实 DeepSeek + Tavily 端到端测试已覆盖任务规划、两轮搜索、Evidence 整理、报告生成、SQLite 持久化和引用编号校验。
 
-固定评估案例位于 `tests/fixtures/research_cases/`，评分规则见 `docs/evaluation-rubric.md`，真实结果见 `docs/evaluation-results-v1.md`。2026-10-07 三个案例均完成真实DeepSeek/Tavily运行，得分为32/40、33/40和33/40；结果同时保留单次运行、来源权威性和引用语义尚未充分验证的限制。
+固定评估案例位于 `tests/fixtures/research_cases/`，评分规则见 `docs/evaluation-rubric.md`，真实结果见 `docs/evaluation-results-v1.md`。企业文档 Agent、电商客服 Agent 和浏览器自动化 Agent 三个案例均已完成真实 DeepSeek/Tavily 运行。
 
 ## 已知限制
 
-- `POST /research` 是同步请求，长任务可能超时；没有后台任务队列。
-- 没有用户登录、权限隔离、限流和生产级审计。
-- 搜索质量依赖 Tavily，结论仍需人工复核原始来源。
-- 引用校验能阻止未知编号，但不能自动证明引用内容支持对应结论。
-- SQLite 只保存任务最新快照，不保存完整状态变化历史。
-- 当前没有 RAG 私有知识库、浏览器自动化或多 Agent 协作。
-- Docker只完成无密钥的启动与查询接口验证；固定案例各只运行一次，不能证明生产稳定性。
-
-## 作品集表述边界
-
-可以描述为：独立实现了一个可测试、可持久化、带 API 和演示页面的深度研究 Agent 闭环，并能解释模型、搜索、证据、反思、报告和状态之间的边界。
-
-不应描述为：完整复刻 GPT Researcher、已达到生产级、实现通用自主 Agent、实现企业 RAG，或真实评测已经通过。
+- `POST /research` 当前同步执行，长任务可能需要等待。
+- 搜索与报告质量依赖公开来源，重要结论仍需人工复核。
+- 当前版本不包含用户权限、私有知识库和生产级任务队列。
