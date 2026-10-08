@@ -1,0 +1,15 @@
+[theme]
+base = "light"
+primaryColor = "#315C8C"
+backgroundColor = "#F7F9FC"
+secondaryBackgroundColor = "#EEF3F8"
+textColor = "#172033"
+linkColor = "#315C8C"
+baseRadius = "medium"
+buttonRadius = "medium"
+borderColor = "#D9E0E8"
+showWidgetBorder = true
+font = "sans-serif"
+
+[browser]
+gatherUsageStats = false
