@@ -33,6 +33,16 @@ LLM 负责规划、反思和写作；Python 代码负责流程顺序、搜索上
 - Streamlit：输入主题、查看计划/证据/报告/用量、下载 Markdown/HTML
 - FakeLLM 与 FakeSearch 离线测试，不消耗真实 API
 
+## 界面预览
+
+### 研究工作台
+
+![Mini GPT Researcher 研究工作台](docs/assets/researcher-home.png)
+
+### 研究结果
+
+![Mini GPT Researcher 研究结果](docs/assets/researcher-result.png)
+
 ## 项目结构
 
 ```text
@@ -105,7 +115,7 @@ docker run --rm -p 8000:8000 --env-file .env mini-gpt-researcher:local
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-自动化测试覆盖数据模型、Agent 流程、错误路径、持久化、API 和 UI，目前共 `64` 项测试通过。
+自动化测试覆盖数据模型、Agent 流程、错误路径、持久化、API 和 UI，目前共 `65` 项测试通过。
 
 真实 DeepSeek + Tavily 端到端测试已覆盖任务规划、两轮搜索、Evidence 整理、报告生成、SQLite 持久化和引用编号校验。
 
