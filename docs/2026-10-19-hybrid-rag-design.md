@@ -130,10 +130,16 @@ def search(query: str, max_results: int) -> list[SearchResult]
 新增私有文档检索协议：
 
 ```python
-def retrieve(query: str, top_k: int) -> list[DocumentResult]
+def retrieve(
+    knowledge_base_id: str,
+    query: str,
+    top_k: int,
+) -> list[DocumentResult]
 ```
 
 真实实现为 `ChromaDocumentRetriever`，测试实现为 `FakeDocumentRetriever`。
+每次调用显式传入 `knowledge_base_id`，避免常驻的API Service把不同知识库的
+Retriever实例或索引状态混在一起。
 
 ### 6.3 EvidenceManager
 
