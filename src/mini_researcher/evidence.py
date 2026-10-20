@@ -1,6 +1,6 @@
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from mini_researcher.models import Evidence, ResearchQuestion, SearchResult
+from mini_researcher.models import DocumentResult, Evidence, EvidenceSourceType, ResearchQuestion, SearchResult
 
 
 _TRACKING_PARAMETERS = {"fbclid", "gclid"}
@@ -11,11 +11,17 @@ class EvidenceManager:
         self.max_sources = max_sources
         self._evidence: list[Evidence] = []
         self._seen_urls: set[str] = set()
+        self._seen_documents: set[tuple[str, int | None, int]] = set()
 
     def add(
         self,
         question: ResearchQuestion,
         results: list[SearchResult],
+    ) -> list[Evidence]:
+        return self.add_search_results(question, results)
+
+    def add_search_results(
+        self, question: ResearchQuestion, results: list[SearchResult]
     ) -> list[Evidence]:
         added: list[Evidence] = []
 
@@ -39,6 +45,32 @@ class EvidenceManager:
             self._evidence.append(evidence)
             added.append(evidence)
 
+        return added
+
+    def add_document_results(
+        self, question: ResearchQuestion, results: list[DocumentResult]
+    ) -> list[Evidence]:
+        added: list[Evidence] = []
+        for result in results:
+            if len(self._evidence) >= self.max_sources:
+                break
+            identity = (result.document_name.casefold(), result.page_number, result.chunk_index)
+            if identity in self._seen_documents:
+                continue
+            # 文档块和网页共用同一个证据列表，因此编号不会在来源切换时重置。
+            evidence = Evidence(
+                source_id=f"S{len(self._evidence) + 1}",
+                question_id=question.id,
+                source_type=EvidenceSourceType.DOCUMENT,
+                title=result.document_name,
+                document_name=result.document_name,
+                page_number=result.page_number,
+                chunk_index=result.chunk_index,
+                content=result.content,
+            )
+            self._seen_documents.add(identity)
+            self._evidence.append(evidence)
+            added.append(evidence)
         return added
 
     def all(self) -> list[Evidence]:

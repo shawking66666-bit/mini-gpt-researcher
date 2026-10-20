@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class TaskStatus(StrEnum):
@@ -13,6 +13,17 @@ class TaskStatus(StrEnum):
     REPORTING = "reporting"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+class RetrievalMode(StrEnum):
+    WEB = "web"
+    DOCUMENT = "document"
+    HYBRID = "hybrid"
+
+
+class EvidenceSourceType(StrEnum):
+    WEB = "web"
+    DOCUMENT = "document"
 
 
 class ResearchQuestion(BaseModel):
@@ -47,14 +58,34 @@ class SearchResult(BaseModel):
     _http_url = field_validator("url")(_validate_http_url)
 
 
+class DocumentResult(BaseModel):
+    document_name: str = Field(min_length=1)
+    content: str = Field(min_length=1)
+    page_number: int | None = Field(default=None, ge=1)
+    chunk_index: int = Field(ge=0)
+    score: float | None = None
+
+
 class Evidence(BaseModel):
     source_id: str = Field(pattern=r"^S[1-9]\d*$")
     question_id: str = Field(min_length=1)
     title: str = Field(min_length=1)
-    url: str
+    source_type: EvidenceSourceType = EvidenceSourceType.WEB
+    url: str | None = None
+    document_name: str | None = None
+    page_number: int | None = Field(default=None, ge=1)
+    chunk_index: int | None = Field(default=None, ge=0)
     content: str = Field(min_length=1)
 
-    _http_url = field_validator("url")(_validate_http_url)
+    @model_validator(mode="after")
+    def validate_source(self) -> "Evidence":
+        if self.source_type == EvidenceSourceType.WEB:
+            if self.url is None:
+                raise ValueError("web evidence requires a URL")
+            _validate_http_url(self.url)
+        elif not self.document_name:
+            raise ValueError("document evidence requires a document_name")
+        return self
 
 
 class Usage(BaseModel):
@@ -87,6 +118,8 @@ class ResearchState(BaseModel):
     task_id: str = Field(min_length=1)
     topic: str = Field(min_length=3)
     status: TaskStatus
+    retrieval_mode: RetrievalMode = RetrievalMode.WEB
+    knowledge_base_id: str | None = None
     created_at: datetime
     round_number: int = Field(default=0, ge=0, le=2)
     plan: ResearchPlan | None = None

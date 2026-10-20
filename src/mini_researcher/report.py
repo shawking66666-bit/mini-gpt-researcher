@@ -4,7 +4,7 @@ from markdown_it import MarkdownIt
 from pydantic import BaseModel, Field
 
 from mini_researcher.llm import LLMClient
-from mini_researcher.models import Evidence, ResearchPlan, ResearchReport, Usage
+from mini_researcher.models import Evidence, EvidenceSourceType, ResearchPlan, ResearchReport, Usage
 
 
 _CITATION_PATTERN = re.compile(r"\[(S\d+)\]")
@@ -44,10 +44,9 @@ class ReportWriter:
         self.last_usage = Usage()
         # 把 Evidence 实例列表整理成一个字符串目录，作为 user_prompt 的一部分交给 LLM。
         evidence_catalog = "\n".join(
-            (
-                f"[{item.source_id}] title={item.title}; "
-                f"url={item.url}; content={item.content}"
-            )
+            f"[{item.source_id}] title={item.title}; "
+            f"source={item.url if item.source_type == EvidenceSourceType.WEB else item.document_name}; "
+            f"page={item.page_number}; content={item.content}"
             for item in evidence
         )
         # output_type 传入 ReportDraft 类：真实 LLM 会用它解析 JSON；FakeLLM 会检查预设实例类型。
@@ -86,13 +85,14 @@ class ReportWriter:
             )
 
         evidence_by_id = {item.source_id: item for item in evidence}
-        reference_lines = [
-            (
-                f"- [{source_id}] "
-                f"[{evidence_by_id[source_id].title}]({evidence_by_id[source_id].url})"
-            )
-            for source_id in used_source_ids
-        ]
+        reference_lines = []
+        for source_id in used_source_ids:
+            item = evidence_by_id[source_id]
+            if item.source_type == EvidenceSourceType.WEB:
+                reference_lines.append(f"- [{source_id}] [{item.title}]({item.url})")
+            else:
+                page = f"，第{item.page_number}页" if item.page_number is not None else ""
+                reference_lines.append(f"- [{source_id}] {item.document_name}{page}")
         markdown = draft.markdown.rstrip()
         if reference_lines:
             markdown += "\n\n## References\n\n" + "\n".join(reference_lines)

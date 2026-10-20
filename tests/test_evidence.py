@@ -1,5 +1,5 @@
 from mini_researcher.evidence import EvidenceManager
-from mini_researcher.models import ResearchQuestion, SearchResult
+from mini_researcher.models import DocumentResult, EvidenceSourceType, ResearchQuestion, SearchResult
 
 
 def test_evidence_manager_deduplicates_tracking_urls() -> None:
@@ -101,3 +101,19 @@ def test_evidence_manager_deduplicates_across_multiple_add_calls() -> None:
     assert [evidence.source_id for evidence in first_added] == ["S1"]
     assert [evidence.source_id for evidence in second_added] == ["S2"]
     assert [evidence.question_id for evidence in manager.all()] == ["q1", "q2"]
+
+
+def test_web_and_document_results_share_ids_and_limit() -> None:
+    question = ResearchQuestion(id="q1", text="Compare sources")
+    manager = EvidenceManager(max_sources=3)
+    web = SearchResult(title="Web", url="https://example.com/1", content="Online")
+    document = DocumentResult(document_name="handbook.pdf", content="Local", page_number=12, chunk_index=0)
+
+    first = manager.add_search_results(question, [web])
+    second = manager.add_document_results(question, [document, document])
+    third = manager.add_search_results(question, [SearchResult(title="More", url="https://example.com/2", content="More")])
+    manager.add_document_results(question, [DocumentResult(document_name="notes.md", content="Overflow", chunk_index=0)])
+
+    assert [item.source_id for item in [*first, *second, *third]] == ["S1", "S2", "S3"]
+    assert [item.source_type for item in manager.all()] == [EvidenceSourceType.WEB, EvidenceSourceType.DOCUMENT, EvidenceSourceType.WEB]
+    assert len(manager.all()) == 3

@@ -5,6 +5,9 @@ from pydantic import ValidationError
 
 from mini_researcher.models import (
     Evidence,
+    EvidenceSourceType,
+    DocumentResult,
+    RetrievalMode,
     ResearchPlan,
     ResearchQuestion,
     ResearchState,
@@ -72,6 +75,33 @@ def test_evidence_keeps_question_and_source_identity() -> None:
 
     assert evidence.source_id == "S1"
     assert evidence.question_id == "q1"
+    assert evidence.source_type == EvidenceSourceType.WEB
+
+
+def test_document_evidence_requires_filename_but_not_url() -> None:
+    evidence = Evidence(
+        source_id="S2", question_id="q1", title="Handbook",
+        source_type=EvidenceSourceType.DOCUMENT, document_name="handbook.pdf",
+        page_number=12, chunk_index=0, content="Relevant paragraph.",
+    )
+    assert evidence.url is None
+    assert evidence.document_name == "handbook.pdf"
+    assert evidence.page_number == 12
+    assert DocumentResult(document_name="notes.md", content="Text", chunk_index=0).page_number is None
+
+    with pytest.raises(ValidationError):
+        Evidence(source_id="S3", question_id="q1", title="Missing filename",
+                 source_type=EvidenceSourceType.DOCUMENT, content="Text")
+
+    with pytest.raises(ValidationError):
+        Evidence(source_id="S4", question_id="q1", title="Missing URL", content="Text")
+
+
+def test_state_defaults_to_web_mode_without_a_knowledge_base() -> None:
+    state = ResearchState(task_id="task-1", topic="AI agent evaluation",
+                          status=TaskStatus.PENDING, created_at=datetime(2026, 9, 12, tzinfo=UTC))
+    assert state.retrieval_mode == RetrievalMode.WEB
+    assert state.knowledge_base_id is None
 
 
 def test_usage_accumulates_each_counter() -> None:

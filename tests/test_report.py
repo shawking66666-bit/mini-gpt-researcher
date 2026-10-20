@@ -1,6 +1,6 @@
 import pytest
 
-from mini_researcher.models import Evidence, ResearchPlan, ResearchQuestion, Usage
+from mini_researcher.models import Evidence, EvidenceSourceType, ResearchPlan, ResearchQuestion, Usage
 from mini_researcher.report import (
     InvalidCitationError,
     ReportDraft,
@@ -118,3 +118,14 @@ def test_report_writer_clears_usage_before_a_new_request() -> None:
         writer.write("AI agents", _plan(), [_evidence_s1()])
 
     assert writer.last_usage == Usage()
+
+
+def test_document_reference_uses_filename_and_page_without_fake_link() -> None:
+    evidence = Evidence(source_id="S1", question_id="q1", title="Handbook",
+                        source_type=EvidenceSourceType.DOCUMENT,
+                        document_name="handbook.pdf", page_number=12,
+                        chunk_index=0, content="verified paragraph")
+    draft = ReportDraft(title="Report", markdown="Claim [S1]", used_source_ids=["S1"])
+    report = ReportWriter(FakeLLM([draft])).write("AI agents", _plan(), [evidence])
+    assert "[S1] handbook.pdf，第12页" in report.markdown
+    assert "](None)" not in report.markdown
