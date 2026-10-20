@@ -8,3 +8,4 @@ __pycache__/
 .pytest_cache/
 reports/
 data/
+data/knowledge_bases/
