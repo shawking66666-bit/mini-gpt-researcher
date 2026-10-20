@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from mini_researcher.models import ResearchState, TaskStatus
+from mini_researcher.models import RetrievalMode, ResearchState, TaskStatus
 from mini_researcher.orchestrator import ResearchOrchestrator
 from mini_researcher.report import ReportWriter
 from mini_researcher.repository import ResearchRepository
@@ -20,7 +20,12 @@ class ResearchService:
         self.report_writer = report_writer
         self.repository = repository
 
-    def create_research(self, topic: str) -> ResearchState:
+    def create_research(
+        self,
+        topic: str,
+        retrieval_mode: RetrievalMode = RetrievalMode.WEB,
+        knowledge_base_id: str | None = None,
+    ) -> ResearchState:
         """以同一个 task_id 完成研究；业务失败时返回持久化的 FAILED 状态。"""
 
         normalized_topic = topic.strip()
@@ -32,6 +37,8 @@ class ResearchService:
             topic=normalized_topic,
             status=TaskStatus.PENDING,
             created_at=datetime.now(UTC),
+            retrieval_mode=retrieval_mode,
+            knowledge_base_id=knowledge_base_id,
         )
         # 第一次写库，让后续失败也能通过 task_id 找到这个任务。
         self.repository.save_state(state)
@@ -43,6 +50,8 @@ class ResearchService:
 
             if state.plan is None:
                 raise ValueError("research plan is missing")
+            if not state.evidence:
+                raise ValueError("no evidence found for research")
             try:
                 state.report = self.report_writer.write(
                     state.topic,

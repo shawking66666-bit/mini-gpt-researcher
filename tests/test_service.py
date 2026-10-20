@@ -1,5 +1,6 @@
 from mini_researcher.models import (
     ReflectionResult,
+    RetrievalMode,
     ResearchPlan,
     ResearchQuestion,
     SearchResult,
@@ -155,8 +156,8 @@ def test_service_saves_failed_state_when_planner_fails(tmp_path) -> None:
     assert repository.saved_statuses == [TaskStatus.PENDING, TaskStatus.FAILED]
 
 
-def test_service_completes_without_search_evidence(tmp_path) -> None:
-    """零条搜索证据时，允许生成明确未引用来源的报告。"""
+def test_service_fails_without_search_evidence(tmp_path) -> None:
+    """零条证据不能生成貌似可信的空来源报告。"""
 
     service, repository = _service(
         tmp_path,
@@ -170,8 +171,14 @@ def test_service_completes_without_search_evidence(tmp_path) -> None:
 
     state = service.create_research("AI agent evaluation")
 
-    assert state.status == TaskStatus.COMPLETED
+    assert state.status == TaskStatus.FAILED
     assert state.evidence == []
-    assert state.report is not None
-    assert state.report.used_source_ids == []
+    assert state.report is None
     assert repository.get_task(state.task_id) == state
+
+
+def test_service_persists_selected_retrieval_mode(tmp_path) -> None:
+    service, repository = _service(tmp_path,
+        report_draft=ReportDraft(title="Evaluation", markdown="Claim [S1]", used_source_ids=["S1"]))
+    state = service.create_research("AI agent evaluation", retrieval_mode=RetrievalMode.WEB)
+    assert repository.get_task(state.task_id).retrieval_mode == RetrievalMode.WEB

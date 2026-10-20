@@ -4,6 +4,9 @@ from typing import Any
 from mini_researcher.llm import LLMResult
 from mini_researcher.models import (
     ReflectionResult,
+    DocumentResult,
+    EvidenceSourceType,
+    RetrievalMode,
     ResearchPlan,
     ResearchQuestion,
     ResearchState,
@@ -15,7 +18,7 @@ from mini_researcher.orchestrator import ResearchOrchestrator
 from mini_researcher.planner import Planner
 from mini_researcher.reflector import Reflector
 from mini_researcher.search import SearchError
-from tests.fakes import FakeLLM, FakeSearch
+from tests.fakes import FakeDocumentRetriever, FakeLLM, FakeSearch
 
 
 class _FakeLLMWithUsage:
@@ -298,3 +301,63 @@ def test_orchestrator_uses_service_created_state() -> None:
     assert result is initial_state
     assert result.task_id == "service-task-1"
     assert result.status == TaskStatus.REPORTING
+
+
+def test_hybrid_mode_interleaves_sources_in_both_rounds() -> None:
+    plan = ResearchPlan(topic="AI agents", questions=[ResearchQuestion(id=f"q{i}", text="first question" if i == 1 else f"empty question {i}") for i in range(1, 5)])
+    reflection = ReflectionResult(questions=[ResearchQuestion(id="q5", text="second question")])
+    search = FakeSearch({
+        "first question": [SearchResult(title="W1", url="https://example.com/1", content="web one")],
+        "second question": [SearchResult(title="W2", url="https://example.com/2", content="web two")],
+    })
+    documents = FakeDocumentRetriever({
+        ("kb-test", "first question"): [DocumentResult(document_name="notes.md", content="doc one", chunk_index=0)],
+        ("kb-test", "second question"): [DocumentResult(document_name="notes.md", content="doc two", chunk_index=1)],
+    })
+    state = ResearchState(task_id="hybrid-task", topic="AI agents", status=TaskStatus.PENDING,
+                          created_at=datetime(2026, 10, 2, tzinfo=UTC),
+                          retrieval_mode=RetrievalMode.HYBRID, knowledge_base_id="kb-test")
+    orchestrator = ResearchOrchestrator(
+        planner=Planner(FakeLLM([plan])), search=search,
+        reflector=Reflector(FakeLLM([reflection])), max_results_per_question=5,
+        max_sources=12, document_retriever=documents, rag_top_k=3,
+    )
+
+    result = orchestrator.run("AI agents", state=state)
+
+    assert [item.source_id for item in result.evidence] == ["S1", "S2", "S3", "S4"]
+    assert [item.source_type for item in result.evidence] == [EvidenceSourceType.WEB, EvidenceSourceType.DOCUMENT] * 2
+    assert result.usage.search_requests == 5
+    assert len(documents.calls) == 5
+
+
+def test_document_mode_never_uses_web_search() -> None:
+    plan = ResearchPlan(topic="AI agents", questions=[ResearchQuestion(id=f"q{i}", text="first question" if i == 1 else f"empty question {i}") for i in range(1, 5)])
+    search = FakeSearch({"first question": SearchError("web must not run")})
+    documents = FakeDocumentRetriever({("kb-test", "first question"): [DocumentResult(document_name="notes.md", content="doc", chunk_index=0)]})
+    state = ResearchState(task_id="doc-task", topic="AI agents", status=TaskStatus.PENDING,
+                          created_at=datetime(2026, 10, 2, tzinfo=UTC),
+                          retrieval_mode=RetrievalMode.DOCUMENT, knowledge_base_id="kb-test")
+    orchestrator = ResearchOrchestrator(Planner(FakeLLM([plan])), search,
+                                        Reflector(FakeLLM([ReflectionResult()])),
+                                        max_results_per_question=5, max_sources=12,
+                                        document_retriever=documents, rag_top_k=3)
+    result = orchestrator.run("AI agents", state=state)
+    assert result.usage.search_requests == 0
+    assert len(result.evidence) == 1
+    assert result.errors == []
+
+
+def test_hybrid_keeps_document_when_web_search_fails() -> None:
+    plan = ResearchPlan(topic="AI agents", questions=[ResearchQuestion(id=f"q{i}", text="first question" if i == 1 else f"empty question {i}") for i in range(1, 5)])
+    documents = FakeDocumentRetriever({("kb-test", "first question"): [DocumentResult(document_name="notes.md", content="doc", chunk_index=0)]})
+    state = ResearchState(task_id="hybrid-task", topic="AI agents", status=TaskStatus.PENDING,
+                          created_at=datetime(2026, 10, 2, tzinfo=UTC),
+                          retrieval_mode=RetrievalMode.HYBRID, knowledge_base_id="kb-test")
+    orchestrator = ResearchOrchestrator(Planner(FakeLLM([plan])),
+        FakeSearch({"first question": SearchError("provider unavailable")}),
+        Reflector(FakeLLM([ReflectionResult()])), max_results_per_question=5,
+        max_sources=12, document_retriever=documents, rag_top_k=3)
+    result = orchestrator.run("AI agents", state=state)
+    assert [item.source_type for item in result.evidence] == [EvidenceSourceType.DOCUMENT]
+    assert len(result.errors) == 1
