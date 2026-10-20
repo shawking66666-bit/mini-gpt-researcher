@@ -1,10 +1,13 @@
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 import pytest
 
+from mini_researcher import api as api_module
 from mini_researcher.api import create_app
-from mini_researcher.models import ResearchReport, ResearchState, TaskStatus
+from mini_researcher.knowledge import KnowledgeBaseSummary
+from mini_researcher.models import ResearchReport, ResearchState, RetrievalMode, TaskStatus
 from mini_researcher.repository import ResearchRepository
 
 
@@ -13,13 +16,18 @@ class _FakeResearchService:
 
     def __init__(self, repository: ResearchRepository) -> None:
         self.repository = repository
+        self.calls = []
 
-    def create_research(self, topic: str) -> ResearchState:
+    def create_research(self, topic: str, retrieval_mode: RetrievalMode = RetrievalMode.WEB,
+                        knowledge_base_id: str | None = None) -> ResearchState:
+        self.calls.append((topic, retrieval_mode, knowledge_base_id))
         state = ResearchState(
             task_id="created-task",
             topic=topic,
             status=TaskStatus.PENDING,
             created_at=datetime(2026, 10, 3, 8, 0, tzinfo=UTC),
+            retrieval_mode=retrieval_mode,
+            knowledge_base_id=knowledge_base_id,
         )
         self.repository.save_state(state)
         return state
@@ -129,3 +137,55 @@ def test_list_research_returns_saved_tasks(
 
     assert response.status_code == 200
     assert {item["task_id"] for item in response.json()} == {"task-1", "task-2"}
+
+
+def test_upload_returns_ready_knowledge_base(repository: ResearchRepository) -> None:
+    class FakeKnowledgeService:
+        def create(self, files):
+            assert [(item.name, item.content) for item in files] == [("notes.md", b"hello")]
+            return KnowledgeBaseSummary(knowledge_base_id="kb-test", document_count=1, chunk_count=1)
+
+    client = TestClient(create_app(_FakeResearchService(repository), repository,
+                                   knowledge_service=FakeKnowledgeService()))
+    response = client.post("/knowledge-bases", files=[("files", ("notes.md", b"hello", "text/markdown"))])
+    assert response.status_code == 201
+    assert response.json() == {"knowledge_base_id": "kb-test", "document_count": 1,
+                               "chunk_count": 1, "status": "ready"}
+
+
+def test_hybrid_request_forwards_validated_knowledge_base(repository: ResearchRepository) -> None:
+    service = _FakeResearchService(repository)
+    client = TestClient(create_app(service, repository,
+                                   knowledge_validator=lambda kb_id: kb_id == "kb-test"))
+    response = client.post("/research", json={"topic": "AI agents", "retrieval_mode": "hybrid",
+                                             "knowledge_base_id": "kb-test"})
+    assert response.status_code == 201
+    assert service.calls == [("AI agents", RetrievalMode.HYBRID, "kb-test")]
+
+
+@pytest.mark.parametrize("body", [
+    {"topic": "AI agents", "retrieval_mode": "document"},
+    {"topic": "AI agents", "retrieval_mode": "hybrid", "knowledge_base_id": "missing"},
+])
+def test_document_research_rejects_missing_or_unready_id(repository: ResearchRepository, body) -> None:
+    service = _FakeResearchService(repository)
+    client = TestClient(create_app(service, repository, knowledge_validator=lambda _: False))
+    response = client.post("/research", json=body)
+    assert response.status_code == 422
+    assert service.calls == []
+
+
+def test_default_service_factory_returns_service_without_embedding_call(monkeypatch, repository) -> None:
+    monkeypatch.setattr(api_module, "Settings", lambda: SimpleNamespace(
+        deepseek_api_key="test", tavily_api_key="test",
+        deepseek_base_url="https://api.deepseek.com", deepseek_model="test-model",
+        max_results_per_question=5, max_final_sources=12, rag_top_k=3,
+    ))
+    monkeypatch.setattr(api_module, "_default_repository", lambda: repository)
+    monkeypatch.setattr(api_module, "create_dashscope_embeddings",
+                        lambda _: (_ for _ in ()).throw(AssertionError("embedding was initialized")))
+    api_module._default_service.cache_clear()
+    try:
+        assert api_module._default_service() is not None
+    finally:
+        api_module._default_service.cache_clear()
