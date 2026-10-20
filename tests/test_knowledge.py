@@ -1,8 +1,12 @@
 import json
 
 import pytest
+from langchain_core.embeddings import Embeddings
+from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from mini_researcher.knowledge import KnowledgeBaseError, KnowledgeBaseService, UploadedDocument
+from mini_researcher.retrieval import ChromaDocumentRetriever
 
 
 class FakeIndex:
@@ -65,3 +69,51 @@ def test_blank_extracted_text_does_not_publish_manifest(tmp_path) -> None:
     with pytest.raises(KnowledgeBaseError):
         service.create([UploadedDocument(name="notes.md", content=b"   \n")])
     assert list((tmp_path / "knowledge_bases").rglob("manifest.json")) == []
+
+
+class _DeterministicEmbeddings(Embeddings):
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [[1.0, 0.0, 0.0] if "agent" in text.casefold() else [0.0, 1.0, 0.0]
+                for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return [1.0, 0.0, 0.0] if "agent" in text.casefold() else [0.0, 1.0, 0.0]
+
+
+def test_real_chroma_persists_and_reopens_with_fake_embeddings(tmp_path) -> None:
+    root = tmp_path / "knowledge_bases"
+    embeddings = _DeterministicEmbeddings()
+    summary = KnowledgeBaseService(root, embeddings, embedding_dimension=3).create([
+        UploadedDocument(name="notes.md", content=b"An agent plans and executes tasks."),
+    ])
+    results = ChromaDocumentRetriever(root, embeddings).retrieve(
+        summary.knowledge_base_id, "agent", 3,
+    )
+    assert len(results) == 1
+    assert results[0].document_name == "notes.md"
+    assert "agent plans" in results[0].content
+
+
+def test_pdf_ingestion_keeps_one_based_page_number(tmp_path) -> None:
+    pdf_path = tmp_path / "sample.pdf"
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    font = DictionaryObject({
+        NameObject("/Type"): NameObject("/Font"),
+        NameObject("/Subtype"): NameObject("/Type1"),
+        NameObject("/BaseFont"): NameObject("/Helvetica"),
+    })
+    page[NameObject("/Resources")] = DictionaryObject({
+        NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)}),
+    })
+    stream = DecodedStreamObject()
+    stream.set_data(b"BT /F1 12 Tf 72 720 Td (Agent guide content) Tj ET")
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    with pdf_path.open("wb") as handle:
+        writer.write(handle)
+
+    service, store = _service(tmp_path)
+    summary = service.create([UploadedDocument(name="sample.pdf", content=pdf_path.read_bytes())])
+    assert summary.status == "ready"
+    assert store.documents[0].metadata["page_number"] == 1
+    assert "Agent guide content" in store.documents[0].page_content

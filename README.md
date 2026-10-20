@@ -1,6 +1,6 @@
 # Mini GPT Researcher
 
-一个面向学习与作品集展示的深度研究 Agent。用户输入研究主题后，系统会规划问题、联网搜索、整理证据、判断信息缺口，并生成带来源编号的 Markdown 与 HTML 报告。
+一个面向学习与作品集展示的深度研究 Agent。用户输入研究主题后，系统会规划问题，从公开网页、私有 PDF/Markdown 或两者同时检索，整理证据、判断信息缺口，并生成带来源编号的 Markdown 与 HTML 报告。
 
 本项目参考 [GPT Researcher](https://github.com/assafelovic/gpt-researcher) 的公开产品思路，从零重写了一个范围更小、便于解释和测试的版本。它不是 GPT Researcher 的完整复刻，也不声称具备生产级可靠性。
 
@@ -11,7 +11,7 @@
 ```text
 研究主题
   -> Planner：生成结构化研究计划
-  -> TavilySearch：逐个问题搜索公开网页
+  -> TavilySearch / ChromaDocumentRetriever：按模式检索网页、私有文档或两者
   -> EvidenceManager：去重并编号为 S1、S2……
   -> Reflector：判断证据是否充足，必要时生成补充问题
   -> ReportWriter：生成报告并校验引用编号
@@ -25,13 +25,17 @@ LLM 负责规划、反思和写作；Python 代码负责流程顺序、搜索上
 
 - DeepSeek 结构化输出：研究计划、证据反思、最终报告
 - Tavily 联网搜索，并用统一 `SearchResult` 格式隔离外部 SDK
+- 私有 PDF/Markdown 入库：LangChain Loader 与文本切分、千问 Embedding API、本地 Chroma 索引
+- `web` / `document` / `hybrid` 三种模式；旧请求默认 `web`
 - 最多两轮研究：首轮搜索 + 必要时的补充搜索
 - Evidence 去重、连续编号、最多保留 12 条
 - 报告引用只允许使用真实 Evidence 编号
 - SQLite 保存任务的最新状态、证据和报告
+- 旧版 SQLite 网页任务可事务性迁移为新版结构，保留原有记录
 - FastAPI：创建、列表、查询任务和读取报告
 - Streamlit：输入主题、查看计划/证据/报告/用量、下载 Markdown/HTML
 - FakeLLM 与 FakeSearch 离线测试，不消耗真实 API
+- Fake Embedding / Retriever 测试以及真实本地 Chroma 重开检索测试
 
 ## 界面预览
 
@@ -43,6 +47,8 @@ LLM 负责规划、反思和写作；Python 代码负责流程顺序、搜索上
 
 ![Mini GPT Researcher 研究结果](docs/assets/researcher-result.png)
 
+以上截图为原纯联网界面；新增上传与三模式选择后的截图仍待更新。
+
 ## 项目结构
 
 ```text
@@ -52,7 +58,10 @@ src/mini_researcher/
   orchestrator.py  # plan -> search -> reflect -> search 的流程调度
   planner.py       # 生成 ResearchPlan
   search.py        # Tavily/Fake 搜索边界
-  evidence.py      # 搜索结果去重、编号与容量限制
+  embedding.py     # 千问 Embedding 适配器
+  knowledge.py     # PDF/Markdown 入库、切分与就绪清单
+  retrieval.py     # Chroma 文档检索边界
+  evidence.py      # 网页/文档结果去重、编号与容量限制
   reflector.py     # 判断证据缺口并产生补充问题
   report.py        # 报告生成、引用校验与 HTML 转换
   repository.py    # SQLite 持久化
@@ -75,6 +84,7 @@ python -m venv .venv
 ```dotenv
 DEEPSEEK_API_KEY=你的密钥
 TAVILY_API_KEY=你的密钥
+DASHSCOPE_API_KEY=你的千问 Embedding 密钥
 ```
 
 启动 API：
@@ -88,9 +98,14 @@ TAVILY_API_KEY=你的密钥
 | 方法 | 路径 | 作用 |
 | --- | --- | --- |
 | POST | `/research` | 执行一次研究并返回完整状态 |
+| POST | `/knowledge-bases` | 上传 PDF/Markdown，返回 `knowledge_base_id` |
 | GET | `/research` | 列出已保存任务 |
 | GET | `/research/{task_id}` | 查询一个任务 |
 | GET | `/research/{task_id}/report` | 获取最终报告 |
+
+`POST /research` 可使用 `{"topic":"研究主题","retrieval_mode":"hybrid","knowledge_base_id":"上传返回的ID"}`。省略后两个字段时仍执行旧版联网研究。`document`、`hybrid` 模式必须提供已就绪的知识库 ID；网页模式不需要千问密钥。单次上传最多 5 个文件、单文件 10 MiB、总计 30 MiB，仅支持可提取文字的 PDF 和 Markdown。扫描版 PDF 不包含 OCR。
+
+上传文档与 Chroma 索引保存在被 Git 忽略的 `data/knowledge_bases/`，不会提交到仓库。不要上传敏感或未获授权的材料；当前版本没有用户登录与隔离，适合本地单用户演示。
 
 启动 UI（API 需保持运行）：
 
@@ -102,10 +117,10 @@ TAVILY_API_KEY=你的密钥
 
 ```powershell
 docker build -t mini-gpt-researcher:local .
-docker run --rm -p 8000:8000 --env-file .env mini-gpt-researcher:local
+docker run --rm -p 8000:8000 --env-file .env -v "${PWD}/data:/app/data" mini-gpt-researcher:local
 ```
 
-容器默认运行 FastAPI 的 `8000` 端口，并以非 root 用户运行。Docker 镜像已经完成本地构建与运行验证：容器内用户为 `researcher`（UID 10001），`/openapi.json` 与 `/research` 均返回 HTTP 200。真实研究需通过 `.env` 单独提供 DeepSeek 与 Tavily 密钥。
+容器默认运行 FastAPI 的 `8000` 端口，并以非 root 用户运行。挂载 `data/` 是为了保留 SQLite 与 Chroma 文件。旧版镜像曾完成本地构建与接口验证；加入 RAG 依赖后的镜像尚未重新验证，不能把旧结果视为新版验收。真实混合研究还需要 DeepSeek、Tavily 和千问 Embedding 密钥。
 
 ## 测试与评估
 
@@ -115,7 +130,7 @@ docker run --rm -p 8000:8000 --env-file .env mini-gpt-researcher:local
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-自动化测试覆盖数据模型、Agent 流程、错误路径、持久化、API 和 UI，目前共 `65` 项测试通过。
+自动化测试覆盖数据模型、Agent 流程、旧库迁移、入库、检索、错误路径、API 和 UI。2026-10-20 本机完整测试连续两次运行均为 `106 passed`，依赖检查无冲突。已通过本地 Markdown → Chroma 持久化 → 重新打开检索（Fake Embedding，无外部 API），以及可提取文字 PDF 的页码测试。真实千问 Embedding + 混合报告和新版 Docker 镜像仍待验收，不应描述为已完成。
 
 真实 DeepSeek + Tavily 端到端测试已覆盖任务规划、两轮搜索、Evidence 整理、报告生成、SQLite 持久化和引用编号校验。
 
@@ -125,4 +140,5 @@ docker run --rm -p 8000:8000 --env-file .env mini-gpt-researcher:local
 
 - `POST /research` 当前同步执行，长任务可能需要等待。
 - 搜索与报告质量依赖公开来源，重要结论仍需人工复核。
-- 当前版本不包含用户权限、私有知识库和生产级任务队列。
+- 当前版本不包含多用户权限、知识库访问隔离、OCR 和生产级任务队列。
+- 引用编号合法只证明该来源存在，不证明报告结论已被来源语义支持；重要结论需人工复核。
