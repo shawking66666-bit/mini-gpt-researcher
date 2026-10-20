@@ -21,10 +21,18 @@ def test_settings_use_deepseek_v4_flash_without_thinking() -> None:
     assert settings.deepseek_thinking_enabled is False
 
 
-def test_rag_defaults_do_not_require_embedding_key_for_web_mode() -> None:
-    settings = Settings(deepseek_api_key="deepseek-test", tavily_api_key="tavily-test")
+def test_rag_defaults_do_not_require_embedding_key_for_web_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 本测试验证默认值，不应读取开发者本机的环境变量或 .env。
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    settings = Settings(
+        deepseek_api_key="deepseek-test",
+        tavily_api_key="tavily-test",
+        _env_file=None,
+    )
 
-    assert settings.dashscope_api_key is None
+    assert not settings.dashscope_api_key
     assert settings.dashscope_embedding_model == "qwen3.7-text-embedding-flash"
     assert settings.dashscope_embedding_dimension == 1024
     assert settings.rag_top_k == 3

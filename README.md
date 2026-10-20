@@ -130,7 +130,9 @@ docker run --rm -p 8000:8000 --env-file .env -v "${PWD}/data:/app/data" mini-gpt
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-自动化测试覆盖数据模型、Agent 流程、旧库迁移、入库、检索、错误路径、API 和 UI。2026-10-20 本机完整测试连续两次运行均为 `106 passed`，依赖检查无冲突。已通过本地 Markdown → Chroma 持久化 → 重新打开检索（Fake Embedding，无外部 API），以及可提取文字 PDF 的页码测试。真实千问 Embedding + 混合报告和新版 Docker 镜像仍待验收，不应描述为已完成。
+自动化测试覆盖数据模型、Agent 流程、旧库迁移、入库、检索、错误路径、API 和 UI。2026-10-20 本机完整测试连续两次运行均为 `106 passed`，依赖检查无冲突。已通过本地 Markdown → Chroma 持久化 → 重新打开检索（Fake Embedding，无外部 API），以及可提取文字 PDF 的页码测试。
+
+2026-10-20 另用非敏感示例 Markdown 完成真实千问 Embedding 入库与 Chroma 重开检索；受控混合研究完成 2 轮、3 次 LLM 请求、6 次联网搜索，获得 11 条网页 Evidence 和 1 条文档 Evidence，报告生成且 SQLite 读回状态一致，无运行错误。该测试使用临时目录，没有迁移现有 `data/research.db`。单次成功和引用编号合法不等于语义事实核查或生产稳定性。新版 Docker 镜像仍待重新验收。
 
 真实 DeepSeek + Tavily 端到端测试已覆盖任务规划、两轮搜索、Evidence 整理、报告生成、SQLite 持久化和引用编号校验。
 
