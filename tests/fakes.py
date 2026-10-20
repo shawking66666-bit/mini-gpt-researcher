@@ -1,6 +1,8 @@
 from collections import deque
 from typing import Any
 
+from mini_researcher.models import DocumentResult
+
 
 class FakeLLM:
     def __init__(self, responses: list[Any]) -> None:
@@ -36,3 +38,16 @@ class FakeSearch:
         if isinstance(value, Exception):
             raise value
         return list(value[:max_results])
+
+
+class FakeDocumentRetriever:
+    def __init__(self, responses: dict[tuple[str, str], list[DocumentResult] | Exception]) -> None:
+        self.responses = responses
+        self.calls: list[tuple[str, str, int]] = []
+
+    def retrieve(self, knowledge_base_id: str, query: str, top_k: int) -> list[DocumentResult]:
+        self.calls.append((knowledge_base_id, query, top_k))
+        response = self.responses.get((knowledge_base_id, query), [])
+        if isinstance(response, Exception):
+            raise response
+        return response[:top_k]
