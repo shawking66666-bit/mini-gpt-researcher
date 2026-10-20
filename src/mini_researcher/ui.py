@@ -7,6 +7,7 @@ import streamlit as st
 
 
 API_BASE_URL = os.getenv("MINI_RESEARCHER_API_URL", "http://127.0.0.1:8000")
+MODE_LABELS = {"联网搜索": "web", "私有文档": "document", "混合检索": "hybrid"}
 
 STATUS_LABELS = {
     "pending": "等待开始",
@@ -105,11 +106,17 @@ def _render_state(state: dict[str, Any] | None) -> None:
 
     with evidence_tab:
         if evidence:
-            st.caption("来源按抓取顺序编号；展开可查看证据摘要与原始链接。")
+            st.caption("网页和文档共用来源编号；展开可查看证据摘要。")
             for item in evidence:
-                label = f"{item['source_id']} · {_source_domain(item['url'])} · {item['title']}"
+                if item.get("source_type", "web") == "document":
+                    source_name = item.get("document_name") or "私有文档"
+                    page = f" · 第{item['page_number']}页" if item.get("page_number") else ""
+                    label = f"{item['source_id']} · {source_name}{page}"
+                else:
+                    label = f"{item['source_id']} · {_source_domain(item['url'])} · {item['title']}"
                 with st.expander(label):
-                    st.markdown(f"[打开原始来源]({item['url']})")
+                    if item.get("source_type", "web") == "web" and item.get("url"):
+                        st.markdown(f"[打开原始来源]({item['url']})")
                     st.write(item["content"])
         else:
             st.info("尚未收集到可用证据。")
@@ -166,6 +173,11 @@ with st.sidebar:
         placeholder="例如：AI Agent 应用岗位需要哪些能力？",
         height=180,
     )
+    mode_label = st.selectbox("检索方式", list(MODE_LABELS))
+    uploaded_files = st.file_uploader(
+        "私有资料（PDF / Markdown）", type=["pdf", "md"],
+        accept_multiple_files=True,
+    )
 
     if st.button("开始研究", type="primary", use_container_width=True):
         if not topic.strip():
@@ -173,10 +185,25 @@ with st.sidebar:
         else:
             with st.spinner("正在规划、搜索、反思并生成报告……"):
                 try:
+                    mode = MODE_LABELS[mode_label]
+                    knowledge_base_id = None
+                    if mode != "web":
+                        if not uploaded_files:
+                            st.warning("私有文档和混合检索需要先选择 PDF 或 Markdown 文件。")
+                            st.stop()
+                        # API 先完成入库，再用返回的 ID 发起研究；页面只保存 ID，不保存文档正文。
+                        knowledge = _request(
+                            "POST", "/knowledge-bases",
+                            files=[("files", (file.name, file.getvalue(), file.type))
+                                   for file in uploaded_files],
+                        )
+                        knowledge_base_id = knowledge["knowledge_base_id"]
+                        st.session_state["knowledge_base_id"] = knowledge_base_id
                     st.session_state["research_state"] = _request(
                         "POST",
                         "/research",
-                        json={"topic": topic},
+                        json={"topic": topic, "retrieval_mode": mode,
+                              "knowledge_base_id": knowledge_base_id},
                     )
                 except RuntimeError as error:
                     st.error(str(error))

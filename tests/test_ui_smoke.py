@@ -24,3 +24,10 @@ def test_ui_uses_portfolio_report_layout() -> None:
         "运行详情",
     ]
     assert any("可验证的深度研究工作台" in item.value for item in app.caption)
+
+
+def test_ui_offers_web_document_and_hybrid_modes() -> None:
+    ui_path = Path(__file__).parents[1] / "src" / "mini_researcher" / "ui.py"
+    app = AppTest.from_file(ui_path).run()
+    assert not app.exception
+    assert app.selectbox[0].options == ["联网搜索", "私有文档", "混合检索"]
