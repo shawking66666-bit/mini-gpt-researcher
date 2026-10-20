@@ -5,6 +5,8 @@ import pytest
 
 from mini_researcher.models import (
     Evidence,
+    EvidenceSourceType,
+    RetrievalMode,
     ResearchPlan,
     ResearchQuestion,
     ResearchReport,
@@ -144,3 +146,82 @@ def test_repository_saves_completed_state_with_report_together(tmp_path) -> None
     repository.save_state(completed)
 
     assert repository.get_task(completed.task_id) == completed
+
+
+def test_initialize_migrates_legacy_web_rows_without_loss(tmp_path) -> None:
+    database_path = tmp_path / "legacy.db"
+    with sqlite3.connect(database_path) as connection:
+        connection.executescript("""
+            CREATE TABLE research_tasks (task_id TEXT PRIMARY KEY, topic TEXT NOT NULL,
+                status TEXT NOT NULL, created_at TEXT NOT NULL, round_number INTEGER NOT NULL,
+                plan_json TEXT, errors_json TEXT NOT NULL, usage_json TEXT NOT NULL);
+            CREATE TABLE evidence (task_id TEXT NOT NULL, source_id TEXT NOT NULL,
+                question_id TEXT NOT NULL, title TEXT NOT NULL, url TEXT NOT NULL,
+                content TEXT NOT NULL, PRIMARY KEY (task_id, source_id),
+                FOREIGN KEY (task_id) REFERENCES research_tasks(task_id) ON DELETE CASCADE);
+            CREATE TABLE reports (task_id TEXT PRIMARY KEY, title TEXT NOT NULL,
+                markdown TEXT NOT NULL, html TEXT, used_source_ids_json TEXT NOT NULL,
+                FOREIGN KEY (task_id) REFERENCES research_tasks(task_id) ON DELETE CASCADE);
+        """)
+        connection.execute("INSERT INTO research_tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                           ("legacy", "Legacy research", "completed", "2026-09-28T08:00:00+00:00", 1,
+                            None, "[]", Usage().model_dump_json()))
+        connection.execute("INSERT INTO evidence VALUES (?, ?, ?, ?, ?, ?)",
+                           ("legacy", "S1", "q1", "Old source", "https://example.com/source", "Old content"))
+        connection.execute("INSERT INTO reports VALUES (?, ?, ?, ?, ?)",
+                           ("legacy", "Old report", "Claim [S1]", None, '["S1"]'))
+
+    repository = ResearchRepository(database_path)
+    repository.initialize()
+    migrated = repository.get_task("legacy")
+
+    assert migrated is not None
+    assert migrated.retrieval_mode == RetrievalMode.WEB
+    assert migrated.evidence[0].source_type == EvidenceSourceType.WEB
+    assert migrated.evidence[0].url == "https://example.com/source"
+    assert migrated.report is not None
+    with sqlite3.connect(database_path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute("SELECT COUNT(*) FROM evidence").fetchone()[0] == 1
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_repository_round_trips_document_evidence(tmp_path) -> None:
+    repository = ResearchRepository(tmp_path / "research.db")
+    repository.initialize()
+    state = _sample_state()
+    state.retrieval_mode = RetrievalMode.HYBRID
+    state.knowledge_base_id = "kb-test"
+    state.evidence.append(Evidence(source_id="S2", question_id="q1", title="handbook.pdf",
+                                   source_type=EvidenceSourceType.DOCUMENT, document_name="handbook.pdf",
+                                   page_number=12, chunk_index=0, content="Document content"))
+    repository.save_state(state)
+    assert repository.get_task(state.task_id) == state
+
+
+def test_failed_legacy_migration_leaves_original_schema_intact(tmp_path) -> None:
+    database_path = tmp_path / "broken-legacy.db"
+    with sqlite3.connect(database_path) as connection:
+        connection.executescript("""
+            CREATE TABLE research_tasks (task_id TEXT PRIMARY KEY, topic TEXT NOT NULL,
+                status TEXT NOT NULL, created_at TEXT NOT NULL, round_number INTEGER NOT NULL,
+                plan_json TEXT, errors_json TEXT NOT NULL, usage_json TEXT NOT NULL);
+            CREATE TABLE evidence (task_id TEXT NOT NULL, source_id TEXT NOT NULL,
+                question_id TEXT NOT NULL, title TEXT NOT NULL, url TEXT NOT NULL,
+                content TEXT NOT NULL, PRIMARY KEY (task_id, source_id),
+                FOREIGN KEY (task_id) REFERENCES research_tasks(task_id) ON DELETE CASCADE);
+            CREATE TABLE reports (task_id TEXT PRIMARY KEY, title TEXT NOT NULL,
+                markdown TEXT NOT NULL, html TEXT, used_source_ids_json TEXT NOT NULL,
+                FOREIGN KEY (task_id) REFERENCES research_tasks(task_id) ON DELETE CASCADE);
+            INSERT INTO evidence VALUES ('missing', 'S1', 'q1', 'Orphan',
+                'https://example.com/orphan', 'Old content');
+        """)
+
+    with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
+        ResearchRepository(database_path).initialize()
+
+    with sqlite3.connect(database_path) as connection:
+        columns = [row[1] for row in connection.execute("PRAGMA table_info(research_tasks)")]
+        assert "retrieval_mode" not in columns
+        assert connection.execute("SELECT COUNT(*) FROM evidence").fetchone()[0] == 1
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 0
