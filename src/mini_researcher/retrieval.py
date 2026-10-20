@@ -1,4 +1,5 @@
 import re
+import json
 from pathlib import Path
 from typing import Callable, Protocol
 
@@ -36,9 +37,13 @@ class ChromaDocumentRetriever:
         if top_k < 1:
             raise ValueError("top_k must be positive")
         index_path = self.knowledge_root / knowledge_base_id / "index"
-        if not index_path.is_dir():
+        manifest_path = index_path.parent / "manifest.json"
+        if not index_path.is_dir() or not manifest_path.is_file():
             raise RetrievalError("knowledge-base index is not ready")
         try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if manifest.get("status") != "ready":
+                raise RetrievalError("knowledge-base index is not ready")
             store = self.store_factory(
                 collection_name=f"kb_{knowledge_base_id}",
                 persist_directory=str(index_path),
@@ -56,5 +61,7 @@ class ChromaDocumentRetriever:
                 )
                 for doc, score in matches
             ]
+        except RetrievalError:
+            raise
         except Exception as error:
             raise RetrievalError("document retrieval failed") from error
