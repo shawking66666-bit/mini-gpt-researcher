@@ -36,6 +36,7 @@ LLM 负责规划、反思和写作；Python 代码负责流程顺序、搜索上
 - 旧版 SQLite 网页任务可事务性迁移为新版结构，保留原有记录
 - FastAPI：创建、列表、查询任务和读取报告
 - Streamlit：输入主题、查看计划/证据/报告/用量、下载 Markdown/HTML
+- React + TypeScript + Vite 独立前端：上传资料、发起混合研究、查看报告/计划/来源并下载结果（本地单用户 MVP）
 - FakeLLM 与 FakeSearch 离线测试，不消耗真实 API
 - Fake Embedding / Retriever 测试以及真实本地 Chroma 重开检索测试
 
@@ -50,6 +51,14 @@ LLM 负责规划、反思和写作；Python 代码负责流程顺序、搜索上
 ![Mini GPT Researcher 研究结果](docs/assets/researcher-result.png)
 
 以上截图为原纯联网界面；新增上传与三模式选择后的截图仍待更新。
+
+### 独立前端 V1（模拟接口演示）
+
+![独立前端桌面报告视图，使用本地模拟接口](docs/assets/product-frontend-demo.jpg)
+
+![独立前端手机宽度报告视图，使用本地模拟接口](docs/assets/product-frontend-mobile-demo.jpg)
+
+这两张图只证明页面和交互呈现；截图数据来自本地模拟接口，并非真实研究结果。产品需求和交互映射见 [PRD](docs/2026-10-24-product-frontend-prd.md) 与 [交互图](docs/2026-10-24-product-frontend-interaction-map.md)。
 
 ## 项目结构
 
@@ -69,6 +78,7 @@ src/mini_researcher/
   repository.py    # SQLite 持久化
   ui.py            # Streamlit 页面
 tests/             # 离线单元、集成、API 与 UI 冒烟测试
+frontend/          # React + TypeScript + Vite 独立客户端
 docs/              # 设计、学习笔记和固定案例评估
 ```
 
@@ -113,6 +123,27 @@ DASHSCOPE_API_KEY=你的千问 Embedding 密钥
 
 ```powershell
 .venv\Scripts\python.exe -m streamlit run src/mini_researcher/ui.py
+```
+
+### 启动独立网页前端
+
+先按上文启动 FastAPI，再在另一个 PowerShell 窗口执行：
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+打开 `http://127.0.0.1:5173/`。Vite 将浏览器请求的 `/api/*` 代理到本机 `127.0.0.1:8000`；密钥仍只由 Python 后端读取。新页面目前只开放混合检索，因此需要 PDF/Markdown 和非空主题；旧 Streamlit 仍可使用三种检索模式。`POST /research` 同步执行，页面只显示“正在研究”，不展示虚构的阶段进度。上传的文档写入后端本地目录，新页面没有账号隔离，仅适合本机单用户使用。
+
+前端检查：
+
+```powershell
+cd frontend
+npm test -- --run
+npm run build
+npm run lint
 ```
 
 ## Docker

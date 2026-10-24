@@ -43,6 +43,12 @@ describe('hybrid research form', () => {
     expect(upload).not.toHaveBeenCalled()
   })
 
+  it('shows small file sizes without rounding them to zero', () => {
+    render(<App />)
+    fireEvent.change(screen.getByLabelText('参考资料'), { target: { files: [new File([new Uint8Array(6144)], 'note.md')] } })
+    expect(screen.getByText('6.0 KiB')).toBeInTheDocument()
+  })
+
   it('rejects more than five files and more than 30 MiB total', () => {
     render(<App />)
     fill('研究主题', Array.from({ length: 6 }, (_, n) => new File(['x'], `${n}.md`)))
@@ -61,6 +67,7 @@ describe('hybrid research form', () => {
     expect(research).not.toHaveBeenCalled()
     resolveUpload(ready)
     await waitFor(() => expect(research).toHaveBeenCalledWith('研究主题', 'kb-1'))
+    expect(screen.getByText(/资料库已就绪：1 份文档，2 个片段/)).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('报告标题')).toBeInTheDocument())
     expect(research).toHaveBeenCalledOnce()
   })

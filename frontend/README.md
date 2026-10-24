@@ -1,32 +1,7 @@
-# React + TypeScript + Vite
+# Mini GPT Researcher 独立前端
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+在仓库根目录先启动 FastAPI（端口 `8000`），然后在此目录运行 `npm install`、`npm run dev`，打开 `http://127.0.0.1:5173/`。浏览器通过 Vite 的 `/api` 代理访问现有后端；前端不读取任何 API Key。
 
-Currently, two official plugins are available:
+页面只实现一条混合检索主流程：选择 1–5 个 PDF/Markdown，填写研究主题，上传获得知识库 ID，发起研究，查看报告/计划/来源并下载 Markdown 或 HTML。研究接口是同步的，页面不显示实时内部阶段。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+检查命令：`npm test -- --run`、`npm run build`、`npm run lint`。产品目标、页面行为和边界见仓库 `docs/2026-10-24-product-frontend-prd.md`。

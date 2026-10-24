@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
 import { createHybridResearch, uploadKnowledgeBase } from './api'
-import ResearchForm, { validateInput } from './components/ResearchForm'
-import type { ResearchState } from './types'
+import ResearchForm from './components/ResearchForm'
+import ReportView from './components/ReportView'
+import { validateInput } from './formValidation'
+import type { KnowledgeBaseSummary, ResearchState } from './types'
 import './styles.css'
 
 type Phase = 'idle' | 'uploading' | 'researching' | 'completed' | 'failed'
@@ -12,6 +14,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState('')
   const [result, setResult] = useState<ResearchState | null>(null)
+  const [knowledge, setKnowledge] = useState<KnowledgeBaseSummary | null>(null)
   const busy = useRef(false)
 
   async function submit() {
@@ -25,12 +28,14 @@ export default function App() {
     busy.current = true
     setError('')
     setResult(null)
+    setKnowledge(null)
     setPhase('uploading')
     try {
       const knowledge = await uploadKnowledgeBase(files)
       if (knowledge.status !== 'ready' || !knowledge.knowledge_base_id) {
         throw new Error('资料库未就绪，请检查文件内容后重试。')
       }
+      setKnowledge(knowledge)
       setPhase('researching')
       const state = await createHybridResearch(topic.trim(), knowledge.knowledge_base_id)
       if (state.status !== 'completed') {
@@ -53,11 +58,12 @@ export default function App() {
       <aside className="workspace-aside">
         <ResearchForm topic={topic} files={files} phase={phase} onTopicChange={setTopic} onFilesChange={setFiles} onSubmit={submit} />
         {error && <p role="alert" className="feedback error">{error}</p>}
+        {knowledge && <p className="feedback success">资料库已就绪：{knowledge.document_count} 份文档，{knowledge.chunk_count} 个片段。</p>}
         {phase === 'uploading' && <p role="status" className="feedback">正在上传资料，请稍候…</p>}
         {phase === 'researching' && <p role="status" className="feedback">正在研究，请稍候。当前接口会在完成后一次返回结果。</p>}
       </aside>
       <section className="workspace-main" aria-label="研究结果">
-        {result?.report ? <h1>{result.report.title}</h1> : <div className="empty-view"><h1>让资料与网页一起回答问题</h1><p>填写研究主题并选择 PDF 或 Markdown，生成可追溯来源的研究报告。</p></div>}
+        {result?.report ? <ReportView state={result} /> : <div className="empty-view"><h1>让资料与网页一起回答问题</h1><p>填写研究主题并选择 PDF 或 Markdown，生成可追溯来源的研究报告。</p></div>}
       </section>
     </main>
   </div>
