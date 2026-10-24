@@ -13,7 +13,10 @@
 ## 目录约定
 
 - `docs/`：需求、设计、学习说明和后续实施计划。
+- `docs/2026-*-product-frontend-*.md`：产品前端的设计、PRD、交互图和验收记录；过时稿保留版本或在获批后清理，不覆盖已确认稿。
 - `docs/assets/`：README 与项目文档使用的非敏感截图和静态展示素材。
+- `frontend/`：独立 React + TypeScript + Vite 客户端；源码与测试放 `frontend/src/`，只通过本地代理访问 FastAPI，不存储密钥和上传原文。
+- `frontend/node_modules/`、`frontend/dist/`：本地依赖和构建产物，不提交；需要时重新安装或构建，清理前仍须遵守删除审批边界。
 - `.streamlit/`：Streamlit 项目级主题与页面配置；不得保存密钥。
 - `src/`：正式 Python 源码；设计确认后创建。
 - `tests/`：自动化测试；目录结构与 `src/` 对应。
@@ -47,6 +50,7 @@
 - 真实 Tavily 和真实 LLM 只用于少量集成测试。
 - 完成一个阶段后记录实际命令、结果和仍未验证的部分。
 - 未运行验证时，不得声称功能完成或可用。
+- 前端改动运行 `npm test -- --run` 与 `npm run build`；涉及后端契约时另运行 `.venv\Scripts\python.exe -m pytest -q`。
 
 ## 当前交付验证（2026-10-07）
 
