@@ -1,0 +1,35 @@
+type Phase = 'idle' | 'uploading' | 'researching' | 'completed' | 'failed'
+type Props = {
+  topic: string
+  files: File[]
+  phase: Phase
+  onTopicChange: (value: string) => void
+  onFilesChange: (files: File[]) => void
+  onSubmit: () => void
+}
+
+const MIB = 1024 * 1024
+
+export function validateInput(topic: string, files: File[]): string | null {
+  if (!topic.trim()) return '请输入研究主题。'
+  if (files.length === 0) return '请至少选择 1 个 PDF 或 Markdown 文件。'
+  if (files.length > 5) return '一次最多选择 5 个文件。'
+  if (files.some((file) => !/\.(pdf|md)$/i.test(file.name))) return '仅支持 PDF 或 Markdown（.md）文件。'
+  if (files.some((file) => file.size > 10 * MIB)) return '单个文件不能超过 10 MiB。'
+  if (files.reduce((sum, file) => sum + file.size, 0) > 30 * MIB) return '文件总大小不能超过 30 MiB。'
+  return null
+}
+
+export default function ResearchForm({ topic, files, phase, onTopicChange, onFilesChange, onSubmit }: Props) {
+  const busy = phase === 'uploading' || phase === 'researching'
+  return <form onSubmit={(event) => { event.preventDefault(); onSubmit() }} noValidate>
+    <h2>新建研究</h2>
+    <label htmlFor="research-topic">研究主题</label>
+    <textarea id="research-topic" value={topic} onChange={(event) => onTopicChange(event.target.value)} placeholder="例如：分析某行业的发展趋势，并结合上传资料给出结论" rows={6} disabled={busy} />
+    <label htmlFor="research-files">参考资料</label>
+    <p className="field-hint">选择 1–5 个 PDF 或 Markdown；单文件 10 MiB，总计 30 MiB。</p>
+    <input id="research-files" type="file" multiple accept=".pdf,.md,application/pdf,text/markdown" onChange={(event) => onFilesChange(Array.from(event.target.files ?? []))} disabled={busy} />
+    {files.length > 0 && <ul className="selected-files">{files.map((file, index) => <li key={`${file.name}-${index}`}><span>{file.name}</span><small>{(file.size / MIB).toFixed(1)} MiB</small></li>)}</ul>}
+    <button type="submit" disabled={busy}>{phase === 'uploading' ? '正在上传资料…' : phase === 'researching' ? '正在研究…' : '开始混合研究'}</button>
+  </form>
+}

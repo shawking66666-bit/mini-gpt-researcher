@@ -1,122 +1,64 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useRef, useState } from 'react'
+import { createHybridResearch, uploadKnowledgeBase } from './api'
+import ResearchForm, { validateInput } from './components/ResearchForm'
+import type { ResearchState } from './types'
+import './styles.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+type Phase = 'idle' | 'uploading' | 'researching' | 'completed' | 'failed'
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+export default function App() {
+  const [topic, setTopic] = useState('')
+  const [files, setFiles] = useState<File[]>([])
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [error, setError] = useState('')
+  const [result, setResult] = useState<ResearchState | null>(null)
+  const busy = useRef(false)
+
+  async function submit() {
+    if (busy.current) return
+    const problem = validateInput(topic, files)
+    if (problem) {
+      setError(problem)
+      setPhase('failed')
+      return
+    }
+    busy.current = true
+    setError('')
+    setResult(null)
+    setPhase('uploading')
+    try {
+      const knowledge = await uploadKnowledgeBase(files)
+      if (knowledge.status !== 'ready' || !knowledge.knowledge_base_id) {
+        throw new Error('资料库未就绪，请检查文件内容后重试。')
+      }
+      setPhase('researching')
+      const state = await createHybridResearch(topic.trim(), knowledge.knowledge_base_id)
+      if (state.status !== 'completed') {
+        throw new Error('研究失败，请检查服务状态或修改主题后重试。')
+      }
+      if (!state.report) throw new Error('研究已结束，但未生成报告，请稍后重试。')
+      setResult(state)
+      setPhase('completed')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '操作失败，请稍后重试。')
+      setPhase('failed')
+    } finally {
+      busy.current = false
+    }
+  }
+
+  return <div className="app-shell">
+    <header className="app-header"><span className="brand">Mini GPT Researcher</span><span className="header-note">本地运行 · 单用户模式</span></header>
+    <main className="workspace">
+      <aside className="workspace-aside">
+        <ResearchForm topic={topic} files={files} phase={phase} onTopicChange={setTopic} onFilesChange={setFiles} onSubmit={submit} />
+        {error && <p role="alert" className="feedback error">{error}</p>}
+        {phase === 'uploading' && <p role="status" className="feedback">正在上传资料，请稍候…</p>}
+        {phase === 'researching' && <p role="status" className="feedback">正在研究，请稍候。当前接口会在完成后一次返回结果。</p>}
+      </aside>
+      <section className="workspace-main" aria-label="研究结果">
+        {result?.report ? <h1>{result.report.title}</h1> : <div className="empty-view"><h1>让资料与网页一起回答问题</h1><p>填写研究主题并选择 PDF 或 Markdown，生成可追溯来源的研究报告。</p></div>}
       </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    </main>
+  </div>
 }
-
-export default App
