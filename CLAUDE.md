@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-当前处于实施阶段，在 `codex/mini-researcher-implementation` 分支的隔离 worktree 中按实施计划逐任务开发。
+当前 `main` 已包含 Agent、RAG 后端和 React + TypeScript + Vite 前端 MVP。React 页面是默认演示入口；Streamlit 页面保留为旧版功能演示。后续开发以当前仓库的 `main` 与实际源码为准，不把旧实施 worktree 当成启动前提。
 
 ## 目录约定
 
@@ -50,9 +50,16 @@
 - 真实 Tavily 和真实 LLM 只用于少量集成测试。
 - 完成一个阶段后记录实际命令、结果和仍未验证的部分。
 - 未运行验证时，不得声称功能完成或可用。
-- 前端改动运行 `npm test -- --run` 与 `npm run build`；涉及后端契约时另运行 `.venv\Scripts\python.exe -m pytest -q`。
+- 前端改动在 `frontend/` 运行 `npm test -- --run` 与 `npm run build`；涉及后端契约时在仓库根目录另运行 `.\.venv\Scripts\python.exe -m pytest -q`。
 
-## 当前交付验证（2026-10-07）
+## 当前主分支验证（2026-10-27）
+
+- React 前端：`17 passed`，`npm run build` 与 `npm run lint` 均通过。
+- Python 后端：`106 passed, 1 warning`；警告来自 `langchain-community` 弃用提示。
+- 已从 `main/.venv` 启动 FastAPI，`/openapi.json` 与默认 React 页均返回 HTTP 200；`.env` 和 `.venv` 均被 Git 忽略。
+- React 页面在桌面与手机宽度完成本地模拟 API 交互验收；该轮未通过新页面执行真实付费混合研究，不能把模拟报告当成真实效果。
+
+## 历史交付验证（2026-10-07）
 
 - `.venv\Scripts\python.exe -m pip install -e ".[dev]"`：成功。
 - `.venv\Scripts\python.exe -m pytest -q`：`64 passed in 11.17s`。
